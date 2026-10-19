@@ -26,6 +26,7 @@ import type { AuditFinding, AuditReport } from "./audit-report";
 import { achadosConfirmados, avaliarEmissao } from "./audit-report.ts";
 import { findingCard } from "./audit-engine/finding-card.ts";
 import { rotuloDoAchado, textoComRotulos } from "./rotulo-do-achado.ts";
+import { AVISO_DE_RESPONSABILIDADE } from "./aviso-de-responsabilidade.ts";
 
 /** Os estilos do papel. O desenhador traduz cada um numa fonte e num corpo. */
 export type EstiloDoBloco =
@@ -285,6 +286,14 @@ export function blocosDoParecer(report: AuditReport): Bloco[] {
       blocos.push({ estilo: "texto", texto: [cartao.state.label, cartao.state.examined, ...cartao.state.limits].join(" · ") });
     }
   }
+
+  /*
+   * A RESPONSABILIDADE FECHA O PARECER. O papel circula sem a tela, e é nele
+   * que o aviso mais faz falta: quem recebe a folha não viu o produto.
+   */
+  blocos.push({ estilo: "regua", texto: "", respiroAntes: 8 });
+  blocos.push({ estilo: "rotulo", texto: "RESPONSABILIDADE", abreAssunto: true });
+  blocos.push({ estilo: "texto", texto: AVISO_DE_RESPONSABILIDADE });
 
   return blocos;
 }

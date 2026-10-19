@@ -29,6 +29,7 @@ import { ResumoDoParecer, type ComparadoComAnterior } from "./resumo";
 import { VisaoGeralDoParecer } from "./geral";
 import type { AchadoDaTela, ParecerVivo } from "./use-parecer-vivo";
 import { VisorDoMemorial, type ChatDoVisor } from "./visor";
+import { AvisoDeResponsabilidade } from "@/components/aviso-de-responsabilidade";
 import "./resultado.css";
 import "./documento.css";
 import "./embutido.css";
@@ -178,6 +179,8 @@ export function ResultadoDoParecer({
           {vista === "documento" && <NoDocumento report={report} parecer={parecer} catalogo={catalogo} onVerNoMemorial={verNoMemorial} onAbrir={(chave) => abrirNaFila(chave)} />}
         </motion.div>
       </AnimatePresence>
+
+      <AvisoDeResponsabilidade className="px-1" />
 
       <VisorDoMemorial
         key={visor ? `${visor}:${paginaDoVisor ?? ""}` : "fechado"}

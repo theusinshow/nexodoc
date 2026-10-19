@@ -312,3 +312,5 @@
 .md-raiz { --md-margem: 32px; --md-altura-do-topo: 76px; }
 .md-raiz:has(.nx-mesa) { --md-margem: 16px; }
 @media (max-width: 599px) { .md-raiz { --md-altura-do-topo: 72px; } }
+
+.ds .pn-menu-nota a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }

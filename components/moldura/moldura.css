@@ -7,3 +7,8 @@
    e não no Topo, porque só a moldura garante UM por página — nome repetido
    cancela a transição. */
 .ds .md-tela > .pn-topo-caixa { view-transition-name: nx-topo; }
+
+/* O link dos termos: rodapé discreto, só onde a tela não ocupa a janela inteira. */
+.ds .md-rodape { padding: 8px 24px 20px; font-size: 11px; line-height: 1.4; color: var(--ds-text-tertiary); }
+.ds .md-rodape a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.ds .md-rodape a:hover { color: var(--ds-text-secondary); }

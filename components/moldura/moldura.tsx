@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
@@ -150,6 +151,12 @@ export function Moldura({
           <main id="conteudo" className="md-conteudo" tabIndex={-1}>
             {children}
           </main>
+          {/* O Nexo ocupa a altura toda da janela: lá o link mora no menu da conta. */}
+          {!buscaPorEvento && (
+            <footer className="md-rodape">
+              <Link href="/termos">Termos de uso e limitação de responsabilidade</Link>
+            </footer>
+          )}
         </div>
         <Paleta aberta={paleta} onFechar={() => setPaleta(false)} obras={dados.obras} recentes={dados.recentes} inicialQ={termo} />
         <Atalhos aberta={atalhos} onFechar={() => setAtalhos(false)} />

@@ -1,0 +1,37 @@
+/*
+ * AVISOS DE RESPONSABILIDADE: o aviso fixo, o aceite (dentro da `Camada` de
+ * moldura/sobreposicoes) e a página /termos. Só tokens `--ds-*` e medidas que
+ * já existem em outras telas; cada regra diz de onde veio.
+ */
+
+/* o aviso fixo: a nota de rodapé do parecer (mapa.css `.mp-lado-sub`) */
+.ds .ar-aviso { max-width: 76ch; margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--ds-text-tertiary); }
+
+/* o aceite: cabeça e corpo como os atalhos (sobreposicoes.css `.pc-atalhos-cabeca`) */
+.ds .ar-cabeca { display: flex; align-items: center; justify-content: space-between; padding: 14px 12px 6px 20px; }
+.ds .ar-cabeca h2 { margin: 0; font-size: 15px; font-weight: 500; }
+.ds .ar-corpo { display: grid; gap: 16px; padding: 6px 20px 20px; overflow-y: auto; }
+.ds .ar-corpo .ar-aviso { font-size: var(--ds-text-sm); line-height: 1.55; color: var(--ds-text-secondary); }
+.ds .ar-aceite { display: flex; align-items: flex-start; gap: 10px; font-size: var(--ds-text-sm); line-height: 1.5; color: var(--ds-text-primary); cursor: pointer; }
+/* a caixa de marcar é a de pessoas-banco.css `.pb-check` */
+.ds .ar-marca { flex: none; width: 14px; height: 14px; margin: 3px 0 0; accent-color: var(--ds-text-primary); cursor: pointer; }
+.ds .ar-erro { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--ds-state-error); }
+.ds .ar-acoes { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* link de texto, o do rodapé da moldura (moldura.css `.md-rodape a`) */
+.ds .ar-link { color: var(--ds-text-primary); text-decoration: underline; text-underline-offset: 2px; }
+.ds .ar-link:hover { color: var(--ds-text-secondary); }
+
+/* a página: cabeça e largura de leitura do relatório (relatorio.css `.rl-texto`) */
+.ds .ar-pagina { width: min(760px, calc(100% - 64px)); margin: 0 auto; padding: 32px 0 48px; }
+.ds .ar-pagina h1 { margin: 0; font-size: 24px; font-weight: 400; letter-spacing: -0.02em; }
+.ds .ar-versao { margin: 8px 0 0; font-size: 12.5px; color: var(--ds-text-tertiary); }
+.ds .ar-folha { margin-top: 24px; border-radius: var(--ds-radius-card); background: var(--ds-surface-card); box-shadow: var(--ds-edge); }
+.ds .ar-nota { display: flex; align-items: flex-start; gap: 10px; padding: 14px 22px; border-bottom: 1px solid var(--ds-line-subtle); background: var(--ds-state-attention-wash); font-size: var(--ds-text-sm); line-height: 1.5; color: var(--ds-text-secondary); }
+.ds .ar-nota svg { flex: none; width: 16px; height: 16px; margin-top: 2px; color: var(--ds-state-attention); }
+.ds .ar-nota b { font-weight: 500; color: var(--ds-text-primary); }
+.ds .ar-texto { max-width: 76ch; padding: 8px 28px 32px; font-size: var(--ds-text-sm); line-height: 1.65; color: var(--ds-text-secondary); }
+.ds .ar-texto section { padding-top: 20px; }
+.ds .ar-texto h2 { margin: 0 0 8px; font-size: var(--ds-text-xs); font-weight: 500; color: var(--ds-text-primary); }
+.ds .ar-texto p { margin: 0 0 4px; }
+.ds .ar-pe { margin: 20px 0 0; font-size: var(--ds-text-sm); }
