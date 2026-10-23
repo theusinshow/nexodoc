@@ -145,7 +145,7 @@ export function Moldura({
           pessoa estava fazendo.
         */}
         {aviso.mostrarTela && <TelaDeAviso largura={aviso.largura} onContinuar={aviso.continuar} />}
-        <div className="md-tela" inert={aviso.mostrarTela} aria-hidden={aviso.mostrarTela || undefined}>
+        <div className={`md-tela${buscaPorEvento ? "" : " md-com-pe"}`} inert={aviso.mostrarTela} aria-hidden={aviso.mostrarTela || undefined}>
           {aviso.mostrarFaixa && <FaixaDeAviso largura={aviso.largura} onFechar={aviso.fecharFaixa} />}
           <Topo atual={atual} dados={dados} busca={!buscaPropria} trabalhando={trabalhando} />
           <main id="conteudo" className="md-conteudo" tabIndex={-1}>
@@ -153,7 +153,7 @@ export function Moldura({
           </main>
           {/* O Nexo ocupa a altura toda da janela: lá o link mora no menu da conta. */}
           {!buscaPorEvento && (
-            <footer className="md-rodape">
+            <footer className="md-pe">
               <Link href="/termos">Termos de uso e limitação de responsabilidade</Link>
             </footer>
           )}

@@ -1,4 +1,3 @@
-import { TriangleAlert } from "lucide-react";
 import Link from "next/link";
 
 import "@/app/ds.css";
@@ -60,12 +59,6 @@ function Termos() {
       <p className="ar-versao">Versão {VERSAO_DOS_TERMOS}</p>
 
       <article className="ar-folha">
-        <div role="note" data-revisao-juridica className="ar-nota">
-          <TriangleAlert aria-hidden />
-          <p>
-            <b>Atenção:</b> este texto é um modelo e deve ser revisado por um advogado antes de produzir efeitos jurídicos.
-          </p>
-        </div>
         <div className="ar-texto">
           <section>
             <AvisoDeResponsabilidade />
