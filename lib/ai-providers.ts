@@ -87,11 +87,16 @@ export type SafeProviderFailure = {
  * não leu o documento. Por isso o teto subiu para 32.000 junto (ver
  * `getDeepGlobalMaxOutputTokens` em app/api/audit/route.ts). Voltar é trocar
  * estes nomes e as linhas do `render.yaml`.
+ *
+ * FAMÍLIA 6.1 — 26/10/2026: todo `gpt-6-sol` virou `gpt-6.1-sol`, mesmo preço
+ * ($2/$10, cache pela metade). A 6.1 só tem `sol` e `terra`: não há
+ * `gpt-6.1-luna`, e o `terra` custa 10x o `gpt-6-luna` — por isso os fluxos
+ * baratos (selo, LD, conferência, transcrição) seguem no `gpt-6-luna`.
  */
-const DEFAULT_AUDIT_STANDARD_MODEL = "gpt-6-sol";
-const DEFAULT_AUDIT_DEEP_MODEL = "gpt-6-sol";
-const DEFAULT_AUDIT_MEMORIAL_STANDARD_MODEL = "gpt-6-sol";
-const DEFAULT_AUDIT_MEMORIAL_DEEP_MODEL = "gpt-6-sol";
+const DEFAULT_AUDIT_STANDARD_MODEL = "gpt-6.1-sol";
+const DEFAULT_AUDIT_DEEP_MODEL = "gpt-6.1-sol";
+const DEFAULT_AUDIT_MEMORIAL_STANDARD_MODEL = "gpt-6.1-sol";
+const DEFAULT_AUDIT_MEMORIAL_DEEP_MODEL = "gpt-6.1-sol";
 /**
  * O MODELO BARATO DO SISTEMA — usado por tudo que só COPIA campo de carimbo.
  *
@@ -122,7 +127,7 @@ const DEFAULT_LD_OPENAI_MODEL = "gpt-6-luna";
  * ($2/$12 por 1M) com `effort` baixo é o ponto certo. O `sol` ($4/$20) e o
  * `gpt-5.5` ($5/$30) pagam por deliberação que ninguém espera num chat.
  */
-const DEFAULT_CONVERSATION_MODEL = "gpt-6-sol";
+const DEFAULT_CONVERSATION_MODEL = "gpt-6.1-sol";
 /**
  * Organização de volumes — análise e sugestão no MESMO modelo, de propósito.
  *
@@ -134,8 +139,8 @@ const DEFAULT_CONVERSATION_MODEL = "gpt-6-sol";
  * que não é o valor validado é armadilha — ver o comentário do modelo de LD
  * logo acima, que descreve o estrago quando os dois se separam.
  */
-const DEFAULT_VOLUME_ANALYSIS_MODEL = "gpt-6-sol";
-const DEFAULT_VOLUME_SUGGESTION_MODEL = "gpt-6-sol";
+const DEFAULT_VOLUME_ANALYSIS_MODEL = "gpt-6.1-sol";
+const DEFAULT_VOLUME_SUGGESTION_MODEL = "gpt-6.1-sol";
 /**
  * A conferência do volume montado lê um recorte de carimbo por página, e são
  * MUITAS páginas. O modelo barato dá conta de copiar campo de carimbo, e o

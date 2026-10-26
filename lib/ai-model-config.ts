@@ -10,6 +10,8 @@ import { getPrisma, isDatabaseConfigured } from "@/lib/db";
  * pior que não oferecer nada: quem escolhe não tem como saber.
  */
 export const AI_MODEL_OPTIONS = [
+  "gpt-6.1-sol",
+  "gpt-6.1-terra",
   "gpt-6-sol",
   "gpt-6-luna",
   "gpt-6-astra",

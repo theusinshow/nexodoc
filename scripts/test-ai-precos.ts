@@ -152,6 +152,23 @@ test("a família 6 também paga a faixa de contexto longo", () => {
   assert.equal(Number(estimateOpenAiCostUsd("gpt-6-sol", longo)!.toFixed(4)), 1.2);
 });
 
+test("a família 6.1 tem preço, e o cache do sol custa metade do da 6", () => {
+  for (const modelo of ["gpt-6.1-sol", "gpt-6.1-terra"]) {
+    assert.equal(isModelPriceKnown(modelo), true, modelo);
+  }
+  // Conferido em 26/10/2026: 6.1-sol $2/$0,10 de cache, terra $1.
+  assert.equal(Number(estimateOpenAiCostUsd("gpt-6.1-sol", cemMil)!.toFixed(4)), 0.2);
+  assert.equal(Number(estimateOpenAiCostUsd("gpt-6.1-terra", cemMil)!.toFixed(4)), 0.1);
+  const longo = { inputTokens: 300_000, outputTokens: 0, cachedTokens: 0, totalTokens: 300_000 };
+  assert.equal(Number(estimateOpenAiCostUsd("gpt-6.1-sol", longo)!.toFixed(4)), 1.2);
+});
+
+test("o 6.1-sol não recebe 'none'; o 6.1-terra recebe", () => {
+  assert.equal(esforcoAceitoPeloModelo("gpt-6.1-sol", "none"), "low");
+  assert.equal(esforcoAceitoPeloModelo("gpt-6.1-sol", "medium"), "medium");
+  assert.equal(esforcoAceitoPeloModelo("gpt-6.1-terra", "none"), "none");
+});
+
 test("o astra não recebe 'none', que a API recusa para ele", () => {
   assert.equal(esforcoAceitoPeloModelo("gpt-6-astra", "none"), "low");
   assert.equal(esforcoAceitoPeloModelo(" gpt-6-astra ", "none"), "low");

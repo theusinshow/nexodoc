@@ -68,8 +68,11 @@ export function validateAiModelName(model: string) {
  * Os fluxos que copiam em vez de pensar (selo, transcrição, conferência do
  * volume, teste do painel) mandam `none` fixo. Sem esta troca, escolher o astra
  * no painel para um deles faria TODA chamada falhar contra a API.
+ *
+ * O `gpt-6.1-sol` entrou em 26/10/2026 pela página de modelos da OpenAI, que
+ * lista para ele de `low` a `max`, sem `none` (o `gpt-6.1-terra` aceita `none`).
  */
-const MODELOS_SEM_ESFORCO_NONE = new Set(["gpt-6-astra"]);
+const MODELOS_SEM_ESFORCO_NONE = new Set(["gpt-6-astra", "gpt-6.1-sol"]);
 
 /**
  * Sobe `none` para `low` quando o modelo não aceita `none`. É o menor esforço

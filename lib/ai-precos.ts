@@ -19,6 +19,10 @@
  * FAMÍLIA 6 conferida em 24/09/2026 na mesma página. Não existe `gpt-6-terra`, e
  * o `gpt-6-sol` custa MENOS que o `gpt-5.6-sol` e empata com o `terra` na entrada
  * ($2 contra $2, saída $10 contra $12). O `gpt-6-astra` é o topo: 2,5x o sol.
+ *
+ * FAMÍLIA 6.1 conferida em 26/10/2026 na mesma página: só `sol` e `terra`. O
+ * `gpt-6.1-sol` repete o preço do `gpt-6-sol` com o cache pela metade; o
+ * `gpt-6.1-terra` custa metade do sol e 10x o `gpt-6-luna`.
  */
 export type TokenUsageForPricing = {
   inputTokens: number;
@@ -30,6 +34,8 @@ export const MODEL_PRICES_USD_PER_MILLION: Record<
   string,
   { input: number; cachedInput: number; output: number }
 > = {
+  "gpt-6.1-sol": { input: 2, cachedInput: 0.1, output: 10 },
+  "gpt-6.1-terra": { input: 1, cachedInput: 0.05, output: 5 },
   "gpt-6-astra": { input: 10, cachedInput: 1, output: 50 },
   "gpt-6-sol": { input: 2, cachedInput: 0.2, output: 10 },
   "gpt-6-luna": { input: 0.1, cachedInput: 0.01, output: 0.5 },
@@ -52,9 +58,14 @@ export const MODEL_PRICES_USD_PER_MILLION: Record<
  *
  * A família 6 tem a mesma forma (conferida em 24/09/2026: astra $20/$75, sol
  * $4/$15, luna $0,20/$0,75), e a página também não escreve o corte dela.
+ *
+ * A 6.1 escreve o corte: 272k (conferido em 26/10/2026: sol $4/$15, terra
+ * $2/$7,50).
  */
 const LONG_CONTEXT_INPUT_THRESHOLD = 272_000;
 const LONG_CONTEXT_MODELS = new Set([
+  "gpt-6.1-sol",
+  "gpt-6.1-terra",
   "gpt-6-astra",
   "gpt-6-sol",
   "gpt-6-luna",
