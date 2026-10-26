@@ -168,7 +168,7 @@ export async function enviar(mensagem: Mensagem): Promise<ResultadoDoEnvio> {
 /**
  * A URL PÚBLICA, para o botão do e-mail ter para onde apontar.
  *
- * `AUTH_URL` é a mesma que o Auth.js usa e que a `render.yaml` declara como
+ * `AUTH_URL` é a mesma que o Auth.js usa e que o `.env.example` declara como
  * obrigatória -- não inventa uma segunda fonte de verdade para o endereço do
  * serviço. Sem ela, o link do e-mail seria relativo, e um `/nexo?auditoria=x`
  * numa caixa de entrada não leva a lugar nenhum.

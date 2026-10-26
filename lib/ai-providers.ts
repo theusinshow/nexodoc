@@ -86,7 +86,7 @@ export type SafeProviderFailure = {
  * mais: numa corrida do 117-25 passou do teto de 22.000 da leitura global e a IA
  * não leu o documento. Por isso o teto subiu para 32.000 junto (ver
  * `getDeepGlobalMaxOutputTokens` em app/api/audit/route.ts). Voltar é trocar
- * estes nomes e as linhas do `render.yaml`.
+ * estes nomes e as variáveis da Railway.
  *
  * FAMÍLIA 6.1 — 26/10/2026: todo `gpt-6-sol` virou `gpt-6.1-sol`, mesmo preço
  * ($2/$10, cache pela metade). A 6.1 só tem `sol` e `terra`: não há
@@ -135,7 +135,7 @@ const DEFAULT_CONVERSATION_MODEL = "gpt-6.1-sol";
  * diferentes fazia a sugestão propor uma montagem que a análise depois
  * reprovava, e o usuário via o software discordar de si mesmo.
  *
- * O padrão acompanha o valor em uso (`.env.example` e `render.yaml`): padrão
+ * O padrão acompanha o valor em uso (`.env.example` e as variáveis da Railway): padrão
  * que não é o valor validado é armadilha — ver o comentário do modelo de LD
  * logo acima, que descreve o estrago quando os dois se separam.
  */

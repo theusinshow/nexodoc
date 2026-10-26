@@ -14,8 +14,8 @@
  * 40 MB desde 17/09/2026, por decisão do Matheus. O teto NÃO é sobre custo: é a
  * memória do container. Cada auditoria segura o PDF inteiro mais o que o pdfjs
  * constrói em cima dele — medido neste memorial, 229 MB de RSS para 26,8 MB de
- * arquivo. Por isso a vazão global caiu para 1 no `render.yaml`: no plano
- * `starter` (512 MB, heap 384) duas auditorias de 40 MB não cabem. TROCOU UM,
+ * arquivo. Por isso a vazão global caiu para 1 (`NEXODOC_MAX_AUDITORIAS_SIMULTANEAS_GLOBAL`,
+ * ver `.env.example`): em 512 MB (heap 384) duas auditorias de 40 MB não cabem. TROCOU UM,
  * TROCA O OUTRO.
  *
  * PURO e sem imports: o navegador usa antes de subir, a rota usa ao receber e o

@@ -528,7 +528,7 @@ function getChunkPrompt(args: {
  * Subir o teto não sobe a conta sozinho: `max_output_tokens` é limite, não
  * compra. Quem paga caro é a truncagem — 1800 tokens cobrados por uma resposta
  * que não chegou. O piso é aplicado sobre a variável de ambiente de propósito,
- * porque os 1800 estão gravados no .env e no render.yaml.
+ * porque os 1800 estão gravados no .env e nas variáveis de produção.
  */
 /**
  * O TETO DE SAÍDA DE UM BLOCO — agora em função do TAMANHO dele.
