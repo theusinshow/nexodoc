@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": false,
     "skipLibCheck": true,
     "strict": true,
@@ -23,7 +27,9 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": [
+        "./*"
+      ]
     }
   },
   "include": [
@@ -33,9 +39,17 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     ".next-bateria/types/**/*.ts",
-    ".next-bateria/dev/types/**/*.ts"
+    ".next-bateria/dev/types/**/*.ts",
+    ".next-verif/types/**/*.ts",
+    ".next-verif/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "design-system", "scripts", "scratchpad", ".next-bateria"]
+  "exclude": [
+    "node_modules",
+    "design-system",
+    "scripts",
+    "scratchpad",
+    ".next-bateria"
+  ]
   // `scratchpad` e gitignored: e onde ficam diagnosticos descartaveis, que
   // sao escritos para responder uma pergunta e nao para durar. Enquanto ele
   // era type-checked, um rascunho velho com uma query desatualizada TRAVAVA O
