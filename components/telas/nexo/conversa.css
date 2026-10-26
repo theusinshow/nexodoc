@@ -306,6 +306,16 @@
 .ds .nx-achado-anexado-tirar:hover { background: rgb(255 255 255 / 0.06); color: var(--ds-text-primary); }
 .ds .nx-chat-erro { width: min(760px, calc(100% - 28px)); margin: 0 auto 8px; }
 .ds .nx-descer { position: sticky; left: auto; bottom: 12px; display: flex; width: max-content; margin: 0 auto; }
+/* coisa nova abaixo: o botão deixa de ser discreto e diz o que chegou */
+.ds .nx-descer--novidade { color: var(--ds-text-primary); box-shadow: 0 0 0 1px var(--ds-nexo-line), var(--ds-shadow-overlay); animation: nx-descer-chega 0.35s cubic-bezier(0.22, 1, 0.36, 1); }
+.ds .nx-descer:focus-visible { outline: 2px solid var(--ds-focus-ring); outline-offset: 2px; }
+.ds .nx-descer-ponto { width: 6px; height: 6px; border-radius: 50%; background: var(--ds-nexo); }
+.ds .nx-descer-ponto--vivo { animation: nx-descer-pulso 1.4s ease-in-out infinite; }
+@keyframes nx-descer-chega { from { opacity: 0; transform: translateY(6px); } }
+@keyframes nx-descer-pulso { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) {
+  .ds .nx-descer--novidade, .ds .nx-descer-ponto--vivo { animation: none; }
+}
 .ds .nx-campo textarea { outline: none; }
 .ds .nx-campo textarea:disabled { cursor: not-allowed; opacity: 0.6; }
 .ds .nx-campo-dica { margin: 2px 0 0; font-size: 12px; color: var(--ds-text-tertiary); }

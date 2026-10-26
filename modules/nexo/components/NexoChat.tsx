@@ -269,6 +269,60 @@ export function NexoChat({
   // Só gruda no fim se o usuário JÁ estava no fim (margem de 64px p/ subpixel).
   // Quem rolou pra cima pra reler não é arrancado de lá.
   const [atBottom, setAtBottom] = useState(true);
+  /*
+   * A RESPOSTA QUE CHEGAVA SEM NINGUÉM VER (26/10/2026). `atBottom` só era
+   * recalculado no `onScroll`, e a resposta cresce SEM rolagem: quem estava no
+   * fim continuava "no fim" para o código com meia resposta abaixo da dobra, o
+   * botão de descer não aparecia e a conversa parecia travada. Agora a altura do
+   * fio é observada, e o que cresce abaixo de quem não está no fim vira
+   * `novidade` — o botão ganha cor e diz o que chegou.
+   *
+   * E quem estava no fim quando o Nexo começou a responder ACOMPANHA a resposta
+   * até o começo dela encostar no topo do log. Daí para baixo ela não arrasta a
+   * vista (a regra abaixo continua): a leitura segue em ordem, e o botão avisa.
+   */
+  const fioRef = useRef<HTMLDivElement>(null);
+  const seguindoRef = useRef(true);
+  const [novidade, setNovidade] = useState(false);
+  // O turno "vivo" inclui um respiro depois do `done`: os cartões da proposta chegam junto com o fim.
+  const turnoVivoRef = useRef(false);
+  useEffect(() => {
+    if (busy) {
+      turnoVivoRef.current = true;
+      return;
+    }
+    const t = window.setTimeout(() => {
+      turnoVivoRef.current = false;
+    }, 1500);
+    return () => window.clearTimeout(t);
+  }, [busy]);
+  useEffect(() => {
+    const log = scrollRef.current;
+    const fio = fioRef.current;
+    if (!log || !fio) return;
+    let altura = log.scrollHeight;
+    const ro = new ResizeObserver(() => {
+      const cresceu = log.scrollHeight > altura + 1;
+      altura = log.scrollHeight;
+      if (seguindoRef.current && turnoVivoRef.current) {
+        const fim = log.scrollHeight - log.clientHeight;
+        const turnos = fio.querySelectorAll(":scope > .nx-turno");
+        const ultimoTurno = turnos[turnos.length - 1];
+        let alvo = fim;
+        if (ultimoTurno && !ultimoTurno.classList.contains("nx-turno--voce")) {
+          const topo = log.scrollTop + ultimoTurno.getBoundingClientRect().top - log.getBoundingClientRect().top - 12;
+          alvo = Math.min(fim, topo);
+        }
+        if (alvo > log.scrollTop + 1) log.scrollTo({ top: alvo });
+      }
+      const noFim = log.scrollHeight - log.scrollTop - log.clientHeight < 64;
+      setAtBottom(noFim);
+      if (noFim) setNovidade(false);
+      else if (cresceu && turnoVivoRef.current) setNovidade(true);
+    });
+    ro.observe(fio);
+    return () => ro.disconnect();
+  }, []);
 
   /*
    * A CONVERSA NÃO PULA PARA O FIM SOZINHA.
@@ -704,7 +758,10 @@ export function NexoChat({
         aria-label="Conversa com o Nexo"
         onScroll={(e) => {
           const el = e.currentTarget;
-          setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 64);
+          const noFim = el.scrollHeight - el.scrollTop - el.clientHeight < 64;
+          seguindoRef.current = noFim;
+          setAtBottom(noFim);
+          if (noFim) setNovidade(false);
         }}
         className="relative min-h-0 flex-1 overflow-y-auto"
       >
@@ -728,7 +785,7 @@ export function NexoChat({
           bolha, que é justamente a que se está tentando ler. Sem a folga, o
           atalho para chegar ao fim atrapalhava quem já estava chegando lá.
         */}
-        <div className="cx-fio nx-fio">
+        <div ref={fioRef} className="cx-fio nx-fio">
           {messages.map((m, idx) =>
             m.role === "user" ? (
               /* Você: um bloco suave à direita (Conversa v2). */
@@ -853,22 +910,27 @@ export function NexoChat({
           IR PARA AS ÚLTIMAS MENSAGENS. Discreto de propósito: ele fica sobre a
           conversa o tempo todo em que há algo abaixo, e um botão de contraste
           alto nessa posição competiria com o que está sendo lido. Ganha nitidez
-          no hover, que é quando alguém o está procurando.
+          no hover, que é quando alguém o está procurando. A EXCEÇÃO é quando há
+          coisa nova abaixo: aí ele acende e diz o que é — discreto demais, quem
+          não rolava não sabia que o Nexo tinha respondido.
         */}
         {!atBottom && (
           <button
             type="button"
-            aria-label="Ir para as últimas mensagens"
+            aria-label={`${busy ? "O Nexo está respondendo. " : novidade ? "Nova resposta abaixo. " : ""}Ir para as últimas mensagens`}
             onClick={() => {
               const el = scrollRef.current;
               if (!el) return;
               el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+              seguindoRef.current = true;
               setAtBottom(true);
+              setNovidade(false);
             }}
-            className="cx-descer nx-descer"
+            className={`cx-descer nx-descer${busy || novidade ? " nx-descer--novidade" : ""}`}
           >
+            {(busy || novidade) && <span className={`nx-descer-ponto${busy ? " nx-descer-ponto--vivo" : ""}`} aria-hidden />}
+            {busy ? "o Nexo está respondendo" : novidade ? "nova resposta abaixo" : "ir para as últimas mensagens"}
             <ArrowDown size={13} aria-hidden />
-            ir para as últimas mensagens
           </button>
         )}
       </div>
