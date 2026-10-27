@@ -32,11 +32,9 @@ Para cada uma, olhamos:
 ---
 
 ## Fundação que já temos (adaptar, não recriar)
-- [`DESIGN.md`](../../DESIGN.md) — princípios (raio 8px universal, tipografia, tokens).
-- [`docs/09-design-system.md`](../09-design-system.md) — design system do produto.
-- [`docs/05-interface-ui.md`](../05-interface-ui.md) — diretrizes de UI.
-- **Primitivos** em [`components/ui/`](../../components/ui/): Button, Card, Badge,
-  Input, Textarea, Dropdown, EmptyState, Table, Tooltip, Skeleton, Separator…
+- [`DESIGN.md`](../../DESIGN.md) — o design system vigente (`ds`: violeta, Geist, raio por papel), com os tokens em `app/ds.css` e os componentes em `components/ds/`.
+- **Componentes** em [`components/ds/`](../../components/ds/): Botao, Selo, Segmento, Menu, Tecla, Orbe, Esqueleto, gráficos…
+  (`components/ui/` é do tema antigo — não usar em código novo.)
 - **Nexo hoje**: `modules/nexo/components/` (NexoChat = cards de proposta;
   NexoWorkspace/SelosPanel = painel de teste). O reflow vai reorganizar isso.
 

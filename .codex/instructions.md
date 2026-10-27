@@ -28,7 +28,7 @@ Antes de tomar decisoes relevantes, consultar:
 - `docs/03-agente-auditor.md`;
 - `docs/04-arquitetura-tecnica.md`;
 - `docs/08-saida-estruturada.md`;
-- `docs/09-design-system.md`.
+- `DESIGN.md` (design system vigente, sistema `ds`; tokens em `app/ds.css`). O teal + chanfro antigo está aposentado em `docs/arquivo/design-antigo/`.
 
 ## 3. Regras de produto
 
@@ -113,9 +113,9 @@ Exemplos:
 
 - mudancas de agente: `docs/03-agente-auditor.md`;
 - mudancas de arquitetura: `docs/04-arquitetura-tecnica.md`;
-- mudancas de interface: `docs/05-interface-ui.md`;
+- mudancas de interface: `DESIGN.md`;
 - mudancas de saida: `docs/08-saida-estruturada.md`;
-- mudancas visuais: `docs/09-design-system.md`.
+- mudancas visuais: `DESIGN.md` e `app/ds.css`, no mesmo commit.
 
 ## 8. Git
 

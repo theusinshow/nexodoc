@@ -37,6 +37,13 @@ funcao.
 4. Tornar os estados do processamento e do resultado inequívocos.
 5. Manter o fluxo funcional atual enquanto a experiencia amadurece.
 
+## Design
+
+O desenho vigente e o sistema `ds`, descrito na `DESIGN.md` (tokens em
+`app/ds.css`, componentes em `components/ds/`): grafite, violeta so para o Nexo,
+acao principal em pilula clara, Geist, raio por papel. O teal + chanfro antigo
+esta aposentado.
+
 ## Accessibility & Inclusion
 
 Preservar contraste legivel, navegacao por teclado, estados de foco visiveis,

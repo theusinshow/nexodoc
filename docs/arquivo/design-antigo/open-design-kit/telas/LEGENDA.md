@@ -1,3 +1,6 @@
+> **ARQUIVO — sistema de design ANTIGO (teal + chanfro + IBM Plex), aposentado em 01/10/2026.**
+> Não use como referência visual. O vigente é a [`DESIGN.md`](/DESIGN.md) da raiz (sistema `ds`: violeta, Geist, raio por papel; tokens em `app/ds.css`).
+
 # As capturas — o software rodando hoje
 
 Tiradas em 2026-07-30, do software real. A conversa foi semeada com dados

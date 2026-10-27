@@ -409,8 +409,7 @@ O NexoDoc tem design system escuro e tecnico em `DESIGN.md`.
 Direcao visual:
 
 - Fundo escuro, paineis contidos, bordas discretas.
-- Teal para acoes primarias e estados OK.
-- Salmon/rust para atencao.
+- (27/10/2026) A direcao abaixo era a do sistema antigo. Hoje: grafite, violeta `#c3a3ff` so para o Nexo/selecao/foco, acao principal em pilula clara, Geist, raio por papel — ver `DESIGN.md`.
 - Evitar hero/landing page; o produto e ferramenta operacional.
 - Priorizar densidade, leitura rapida, evidencias e clareza para operador.
 

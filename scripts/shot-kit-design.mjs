@@ -17,7 +17,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const BASE = process.env.SHOT_BASE ?? "http://localhost:3000";
-const OUT = process.env.KIT_OUT ?? "docs/open-design-kit/telas";
+const OUT = process.env.KIT_OUT ?? "docs/arquivo/design-antigo/open-design-kit/telas";
 fs.mkdirSync(OUT, { recursive: true });
 
 const VIEW = { width: 1440, height: 900 };

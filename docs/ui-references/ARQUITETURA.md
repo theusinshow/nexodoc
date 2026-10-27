@@ -9,6 +9,10 @@
 > construção e decisões. Quando os dois divergirem, o DESIGN.md vence no que é
 > visual.
 
+> **Atenção (27/10/2026):** os trechos visuais que sobraram aqui (teal, "ring teal",
+> vidro, orbe teal→luminous) são do sistema ANTIGO. O vigente é o `ds` — violeta,
+> Geist, raio por papel — descrito na [`DESIGN.md`](../../DESIGN.md).
+
 > Gerado por um brainstorm multi-agente (18 subagentes: 2 fundamentar + 12 lentes + 3 críticos + 1 síntese). Documento vivo — a fonte da arquitetura do reflow conversacional. Ver referências em [chatbots/](chatbots/).
 
 ---

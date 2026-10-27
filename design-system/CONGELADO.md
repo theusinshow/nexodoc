@@ -19,8 +19,9 @@ verdade concorrentes sobre o design do NexoDoc, e esta era uma delas.
 ## A fonte de verdade é a `DESIGN.md` da raiz
 
 Para qualquer decisão de cor, tipografia, raio, espaçamento, movimento ou estado de
-componente, vale a [`DESIGN.md`](../DESIGN.md) na raiz do repositório, e o que está
-efetivamente escrito em `app/globals.css`. Nada daqui.
+componente, vale a [`DESIGN.md`](../DESIGN.md) na raiz do repositório (o sistema `ds`: violeta,
+Geist, raio por papel), e o que está efetivamente escrito em `app/ds.css`. Nada daqui.
+Este protótipo é shadcn genérico e não tem nada do desenho do Nexo.
 
 Se um componente daqui contradiz a `DESIGN.md`, **a `DESIGN.md` está certa** — este
 diretório não é mantido.

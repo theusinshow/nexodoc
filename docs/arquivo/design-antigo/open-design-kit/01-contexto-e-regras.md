@@ -1,3 +1,6 @@
+> **ARQUIVO — sistema de design ANTIGO (teal + chanfro + IBM Plex), aposentado em 01/10/2026.**
+> Não use como referência visual. O vigente é a [`DESIGN.md`](/DESIGN.md) da raiz (sistema `ds`: violeta, Geist, raio por papel; tokens em `app/ds.css`).
+
 > **Cole este arquivo inteiro como contexto do projeto na ferramenta de design.**
 > Se a ferramenta tiver uma área de "instruções do projeto" ou "conhecimento",
 > é lá que ele mora — assim vale para todas as sessões, sem recolar.

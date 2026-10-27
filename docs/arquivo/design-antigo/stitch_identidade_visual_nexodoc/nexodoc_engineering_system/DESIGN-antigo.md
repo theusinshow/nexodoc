@@ -111,6 +111,9 @@ spacing:
   margin-desktop: 32px
 ---
 
+> **ARQUIVO — sistema de design ANTIGO (teal + chanfro + IBM Plex), aposentado em 01/10/2026.**
+> Não use como referência visual. O vigente é a [`DESIGN.md`](/DESIGN.md) da raiz (sistema `ds`: violeta, Geist, raio por papel; tokens em `app/ds.css`).
+
 ## Brand & Style
 The design system is engineered for high-stakes technical environments. It prioritizes information density, legibility, and operational confidence. The aesthetic is a sophisticated evolution of the terminal—utilitarian yet premium—utilizing a "Dark-Mode First" philosophy to reduce eye strain during long auditing sessions.
 

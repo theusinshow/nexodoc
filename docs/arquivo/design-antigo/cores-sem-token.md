@@ -1,3 +1,6 @@
+> **ARQUIVO — sistema de design ANTIGO (teal + chanfro + IBM Plex), aposentado em 01/10/2026.**
+> Não use como referência visual. O vigente é a [`DESIGN.md`](/DESIGN.md) da raiz (sistema `ds`: violeta, Geist, raio por papel; tokens em `app/ds.css`).
+
 # Cores sem token
 
 Levantadas na varredura de UI de **01/09/2026** (`npm run mede:divida`).

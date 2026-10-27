@@ -117,7 +117,7 @@ data/nexodoc-learnings.json
 /.impeccable/live/
 
 # A entrega crua da ferramenta de design. A copia canonica vive em
-# docs/design-system-v0/, versionada e com cabecalho dizendo que e copia de
+# docs/arquivo/design-antigo/design-system-v0/, versionada e com cabecalho dizendo que e copia de
 # trabalho -- ter as duas seria a verdade duplicada que este repositorio ja
 # pagou caro para evitar.
 /design-system/

@@ -1,3 +1,6 @@
+> **ARQUIVO — sistema de design ANTIGO (teal + chanfro + IBM Plex), aposentado em 01/10/2026.**
+> Não use como referência visual. O vigente é a [`DESIGN.md`](/DESIGN.md) da raiz (sistema `ds`: violeta, Geist, raio por papel; tokens em `app/ds.css`).
+
 # 2d11861d-d9d1-4bfb-a33a-99f9b4296789 implementation handoff
 
 This archive is the source of truth for turning the design into production code. Start from `index.html`, then preserve the visual system, responsive behavior, and interactions found in the exported files.

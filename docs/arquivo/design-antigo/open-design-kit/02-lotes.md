@@ -1,3 +1,9 @@
+> **ARQUIVO — sistema de design ANTIGO (teal + chanfro + IBM Plex), aposentado em 01/10/2026.**
+> Não use como referência visual. O vigente é a [`DESIGN.md`](/DESIGN.md) da raiz (sistema `ds`: violeta, Geist, raio por papel; tokens em `app/ds.css`).
+
+> **Cópia de trabalho para a ferramenta de design.** Gerado em 2026-07-30 a
+> partir de `docs/design-system-prompts.md` (commit bd93f83). A verdade é o
+> repositório: se divergir, o arquivo de lá vence.
 # Prompts para o Open Design
 
 Um prompt mestre (contexto + regras) e nove prompts de lote. Cole o mestre
@@ -398,3 +404,4 @@ Devolva os tokens com o NOME EXATO das variáveis já usadas no código:
 --duration-fast/base/slow/shell, --ease-entrance, --ease-feedback,
 --edge-highlight, --nexo-sidebar-w, --nexo-copilot-w.
 ```
+

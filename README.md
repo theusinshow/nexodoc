@@ -89,11 +89,11 @@ Ordem sugerida de leitura:
 2. [Escopo do MVP](C:/Dev/trabalho/empresa/nexodoc/docs/02-escopo-mvp.md)
 3. [Agente auditor](C:/Dev/trabalho/empresa/nexodoc/docs/03-agente-auditor.md)
 4. [Arquitetura tecnica](C:/Dev/trabalho/empresa/nexodoc/docs/04-arquitetura-tecnica.md)
-5. [Interface UI](C:/Dev/trabalho/empresa/nexodoc/docs/05-interface-ui.md)
+5. Interface e design: [DESIGN.md](DESIGN.md) — o sistema `ds` (violeta, Geist, raio por papel; `app/ds.css`)
 6. [Roadmap](C:/Dev/trabalho/empresa/nexodoc/docs/06-roadmap.md)
 7. [Testes reais](C:/Dev/trabalho/empresa/nexodoc/docs/07-testes-reais.md)
 8. [Saida estruturada e evidencias](C:/Dev/trabalho/empresa/nexodoc/docs/08-saida-estruturada.md)
-9. [Design system](C:/Dev/trabalho/empresa/nexodoc/docs/09-design-system.md)
+9. Design system antigo (teal + chanfro): aposentado, em `docs/arquivo/design-antigo/` — não usar
 10. [Piloto controlado da Montagem de LDs](C:/Dev/trabalho/empresa/nexodoc/docs/12-piloto-controlado-ld.md)
 
 ## Skills de referencia do projeto

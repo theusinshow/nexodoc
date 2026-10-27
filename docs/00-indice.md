@@ -13,11 +13,11 @@ de verdade". Esta pasta tem mais arquivos do que este indice lista.
 2. [Escopo do MVP](02-escopo-mvp.md)
 3. [Agente auditor](03-agente-auditor.md)
 4. [Arquitetura tecnica](04-arquitetura-tecnica.md)
-5. [Interface UI](05-interface-ui.md)
+5. Interface UI — arquivado em [arquivo/design-antigo](arquivo/design-antigo/05-interface-ui.md); hoje vale a [DESIGN.md](../DESIGN.md)
 6. [Roadmap](06-roadmap.md)
 7. [Testes reais](07-testes-reais.md)
 8. [Saida estruturada e evidencias](08-saida-estruturada.md)
-9. [Design system](09-design-system.md)
+9. Design system — **[DESIGN.md](../DESIGN.md)** (sistema `ds`, `app/ds.css`). O 09 antigo está em [arquivo/design-antigo](arquivo/design-antigo/09-design-system.md)
 10. [Bateria de testes](10-bateria-testes.md)
 11. [Checklist de testes sem custo](11-checklist-testes-sem-custo.md)
 12. [Piloto controlado da Montagem de LDs](12-piloto-controlado-ld.md)
@@ -29,8 +29,7 @@ de verdade". Esta pasta tem mais arquivos do que este indice lista.
 
 ## Propostas de evolução (2026-08)
 
-- [Propostas de evolução UX/UI](propostas-evolucao-ux-ui.md) — transversais e por tela, numeradas (1.1–2.29). Status: em avaliação.
-- [Evolução do Orbe — Nexo Core](propostas-orbe.md) — 10 propostas (O.1–O.10). Status: aprovadas para execução, ordem na Parte 3.
+- Propostas de evolução UX/UI e Evolução do Orbe: escritas para o sistema antigo (teal + chanfro), arquivadas em [arquivo/design-antigo](arquivo/design-antigo/). O design vigente é a [DESIGN.md](../DESIGN.md).
 
 ## Fonte de verdade
 
