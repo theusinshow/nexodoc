@@ -124,3 +124,10 @@ data/nexodoc-learnings.json
 .playwright-mcp/
 /prova-telas/
 /prova-real/
+
+# design-sync (estado de máquina e build regenerável)
+/.ds-sync/
+/ds-bundle/
+/.design-sync/.cache/
+/.design-sync/learnings/
+/.design-sync/node_modules

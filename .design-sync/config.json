@@ -1,0 +1,47 @@
+{
+  "projectId": "a0471125-6f92-44e0-b2cd-81a7696b3d25",
+  "shape": "package",
+  "pkg": "nexo-ds",
+  "globalName": "NexoDs",
+  "entry": ".design-sync/entrada.tsx",
+  "srcDir": "components/ds",
+  "tsconfig": "tsconfig.json",
+  "cssEntry": "app/ds.css",
+  "extraFonts": [
+    ".design-sync/fontes.css"
+  ],
+  "componentSrcMap": {
+    "Botao": "components/ds/basicos.tsx",
+    "Selo": "components/ds/basicos.tsx",
+    "Segmento": "components/ds/basicos.tsx",
+    "Seletor": "components/ds/basicos.tsx",
+    "Tecla": "components/ds/basicos.tsx",
+    "Avatar": "components/ds/basicos.tsx",
+    "Girando": "components/ds/basicos.tsx",
+    "Esqueleto": "components/ds/basicos.tsx",
+    "NumeroQueChega": "components/ds/basicos.tsx",
+    "Menu": "components/ds/basicos.tsx",
+    "RaizDs": ".design-sync/base/raiz-ds.tsx"
+  },
+  "provider": {
+    "component": "RaizDs"
+  },
+  "guidelinesGlob": [
+    "DESIGN.md"
+  ],
+  "docsDir": ".design-sync/docs",
+  "dtsPropsFor": {
+    "Botao": "variante?: 'primary' | 'ghost' | 'quiet'; tamanho?: 'sm'; icone?: boolean; disabled?: boolean; onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void; type?: 'button' | 'submit' | 'reset'; className?: string; 'aria-label'?: string; children?: React.ReactNode",
+    "Selo": "tom?: 'neutro' | 'line' | 'nexo' | 'block' | 'risco' | 'decide' | 'note' | 'texto' | 'ok'; ponto?: boolean; children: React.ReactNode",
+    "Segmento": "opcoes: { valor: string; rotulo: React.ReactNode }[]; valor: string; onTroca: (v: string) => void; rotulo: string; tour?: string",
+    "Seletor": "opcoes: { valor: string; rotulo: string }[]; valor: string; onTroca: (v: string) => void; icone?: React.ReactNode; prefixo?: string",
+    "Tecla": "children: React.ReactNode",
+    "Avatar": "iniciais: string; pequeno?: boolean; grande?: boolean; cor?: { tom: 'arq' | 'est' | 'comp' | null; admin: boolean; rotulo: string | null }",
+    "Girando": "tamanho?: number; rotulo?: string",
+    "Esqueleto": "largura: number | string; altura?: number; raio?: number",
+    "NumeroQueChega": "valor: number",
+    "Menu": "rotulo: React.ReactNode; itens: { rotulo: string; dica?: string; icone?: React.ReactNode; onClick?: () => void }[]; variante?: 'primary' | 'ghost' | 'quiet'; tamanho?: 'sm'; alinhar?: 'left' | 'right'",
+    "RaizDs": "children?: React.ReactNode; style?: React.CSSProperties"
+  },
+  "readmeHeader": ".design-sync/conventions.md"
+}
