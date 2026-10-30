@@ -162,6 +162,8 @@ export async function POST(req: NextRequest) {
    * os mesmos nomes de `P:\cad\`. Sem modelo (Navegantes), só por colagem.
    */
   let clienteDaRede = "";
+  /** Rodapé em siglas ("PMC/SEDES"), quando o modelo declara a da prefeitura. */
+  let siglaDoOrgao = "";
   try {
     const templates = await getTemplateRegistry();
     let modelo = templateId ? templates.find((t) => t.id === templateId) : undefined;
@@ -177,6 +179,7 @@ export async function POST(req: NextRequest) {
     }
     // Sem modelo reconhecido, nada muda: continua a regra de antes.
     if (modelo && !modelo.defaults.secretaria.trim()) usarSecretaria = false;
+    siglaDoOrgao = modelo?.siglaNoRodapeDaLd?.trim() ?? "";
     clienteDaRede = modelo?.id ?? "";
   } catch {
     // Registro de modelos indisponível não pode impedir a LD de sair.
@@ -185,6 +188,7 @@ export async function POST(req: NextRequest) {
   // Título, tomo específico e divisão em tomos são decisões do engenheiro.
   const proposal = buildLdProposal(selos, {
     usarSecretaria,
+    siglaDoOrgao,
     numTomos,
     tomoInicial,
     tomoAtual,

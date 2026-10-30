@@ -20,6 +20,11 @@ export interface TemplateConfigFile {
    * (Florianópolis). É a régua do aviso de transbordo. Ausente = 1.
    */
   paginasPorCapa?: number;
+  /**
+   * Sigla da prefeitura no rodapé da LD ("PMC"). Presente, o emissor sai em
+   * siglas — "PMC/SEDES" —, e não pelo nome. Ausente, vale `defaults.secretaria`.
+   */
+  siglaNoRodapeDaLd?: string;
   defaults: {
     orgao: string;
     secretaria: string;

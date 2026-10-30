@@ -158,6 +158,11 @@ function modeComApoio(values: (string | null | undefined)[], total: number): str
   return apoio * 2 >= total ? vencedor : "";
 }
 
+/** "SECRETARIA DE … ESTRUTURANTES - SEDES" → "SEDES"; sem sigla no fim, "". */
+function siglaDaSecretaria(secretaria: string): string {
+  return secretaria.trim().match(/\s[-–—]\s*([A-ZÀ-Ý]{2,10})$/)?.[1] ?? "";
+}
+
 /** Valor mais frequente (>0) — para números (total dominante). */
 function modeNumber(values: number[]): number {
   const counts = new Map<number, number>();
@@ -186,6 +191,12 @@ export interface BuildLdOptions {
    * medição está.
    */
   usarSecretaria?: boolean;
+  /**
+   * Sigla da prefeitura no rodapé (`siglaNoRodapeDaLd` do `config.json`). Com
+   * ela, o emissor sai em siglas — "PMC/SEDES" —, a da secretaria tirada do
+   * fim do nome no carimbo. Padrão de Chapecó desde 30/10/2026.
+   */
+  siglaDoOrgao?: string;
   /** Divide as folhas em N tomos balanceados (decisão do engenheiro). Default 1. */
   numTomos?: number;
   /** Tomo ESPECÍFICO (ex.: 4): a seção vira "... (TOMO 04)". 0 = usar numTomos. */
@@ -340,8 +351,21 @@ export function buildLdProposal(
    *
    * A correção à mão (`opts.orgao`) segue por cima de tudo, como sempre.
    */
+  /*
+   * EM SIGLAS, quando o modelo declara a da prefeitura (Chapecó, 30/10/2026):
+   * "PMC/SEDES". A da secretaria é a que o carimbo traz no fim do nome
+   * ("… OBRAS ESTRUTURANTES - SEDES"); sem ela, só a da prefeitura — inventar
+   * sigla pelas iniciais daria "SDSOE", que ninguém escreve.
+   */
+  const siglaDoOrgao = dito(opts.siglaDoOrgao);
+  const emSiglas = siglaDoOrgao
+    ? [siglaDoOrgao, siglaDaSecretaria(modeComApoio(validos.map((s) => s.secretaria), validos.length))]
+        .filter(Boolean)
+        .join("/")
+    : "";
   const cliente =
     dito(opts.orgao) ||
+    emSiglas ||
     (opts.usarSecretaria === false
       ? ""
       : modeComApoio(

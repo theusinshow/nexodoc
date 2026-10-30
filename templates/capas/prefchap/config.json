@@ -7,6 +7,7 @@
   "volumeFormat": "roman",
   "tomoFormat": "parenthesized-padded",
   "coverTitleMode": "items",
+  "siglaNoRodapeDaLd": "PMC",
   "defaults": {
     "orgao": "PREFEITURA MUNICIPAL DE CHAPECÓ",
     "secretaria": "SECRETARIA DE PLANEJAMENTO E DESENVOLVIMENTO",

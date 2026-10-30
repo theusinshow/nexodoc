@@ -16,7 +16,8 @@
  * constrói em cima dele — medido neste memorial, 229 MB de RSS para 26,8 MB de
  * arquivo. Por isso a vazão global caiu para 1 (`NEXODOC_MAX_AUDITORIAS_SIMULTANEAS_GLOBAL`,
  * ver `.env.example`): em 512 MB (heap 384) duas auditorias de 40 MB não cabem. TROCOU UM,
- * TROCA O OUTRO.
+ * TROCA O OUTRO. Na Railway o heap é 3072 MB (`NODE_OPTIONS`), e a vazão subiu
+ * para 5, por pessoa e global, em 30/10/2026 — 5 × ~230 MB cabe com folga.
  *
  * PURO e sem imports: o navegador usa antes de subir, a rota usa ao receber e o
  * armazenamento usa ao gravar.

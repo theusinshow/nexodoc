@@ -114,6 +114,45 @@ test("a correção à mão vence a regra do modelo", () => {
 });
 
 /*
+ * O PADRÃO NOVO DE CHAPECÓ (30/10/2026, LD do 132_26 enviada pelo Matheus):
+ *
+ *   PMC/SEDES – 132_26 – REVITALIZAÇÃO DA GRUTA DA SEDE FIGUEIRA – PROJETO
+ *   EXECUTIVO – LISTA DE DOCUMENTOS
+ *
+ * Sigla da prefeitura (declarada no `config.json` do modelo) + sigla da
+ * secretaria (a do fim do nome no carimbo, "… - SEDES"). Substitui o nome
+ * inteiro da secretaria, que é o que o 040-26 entregue imprime.
+ */
+const comSigla = (selos: SeloForLd[], siglaDoOrgao: string, orgao?: string) =>
+  buildLdProposal(selos, { respeitarOrdem: true, siglaDoOrgao, ...(orgao ? { orgao } : {}) }).input.ldData;
+
+test("modelo com sigla imprime PREFEITURA/SECRETARIA em siglas", () => {
+  assert.equal(comSigla(conjunto(5), "PMC").client, "PMC/SEDES");
+});
+
+test("secretaria sem sigla no nome: só a sigla da prefeitura", () => {
+  assert.equal(
+    comSigla(conjunto(5, () => ({ secretaria: "SECRETARIA DE PLANEJAMENTO E DESENVOLVIMENTO" })), "PMC").client,
+    "PMC",
+  );
+});
+
+test("sem secretaria no carimbo: só a sigla da prefeitura", () => {
+  assert.equal(comSigla(conjunto(5, () => ({ secretaria: null })), "PMC").client, "PMC");
+});
+
+test("a sigla aceita travessão e espaço antes dela", () => {
+  assert.equal(
+    comSigla(conjunto(5, () => ({ secretaria: "SECRETARIA DE OBRAS – SEINFRA " })), "PMC").client,
+    "PMC/SEINFRA",
+  );
+});
+
+test("a correção à mão vence a sigla do modelo", () => {
+  assert.equal(comSigla(conjunto(5), "PMC", "ÓRGÃO DITO À MÃO").client, "ÓRGÃO DITO À MÃO");
+});
+
+/*
  * A GRAFIA DO CÓDIGO NO RODAPÉ segue o DOCUMENTO, não a forma canônica.
  *
  * Medido em 31/08/2026 nas 55 LDs de `docs/samples`: o separador do rodapé
