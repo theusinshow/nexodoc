@@ -24,6 +24,14 @@ export const ZOOM_LONGE = 0.55;
 /** Daqui para cima cabe o carimbo inteiro — código do arquivo e disciplina por extenso. */
 export const ZOOM_PERTO = 1.05;
 
+/**
+ * O TETO DO ENQUADRAMENTO AUTOMÁTICO (30/10/2026). `fitView` com poucos nós —
+ * o chat das capas, com uma ou duas — aproximava até o `maxZoom` (1,5) e a
+ * capa enchia a tela ("aumenta demais"). Enquadrar não amplia além do tamanho
+ * natural; aproximar mais é gesto de quem confere (roda, "+").
+ */
+export const ZOOM_MAXIMO_AO_ENQUADRAR = 1;
+
 export function densidadeDoZoom(zoom: number): DensidadeDoNo {
   if (!Number.isFinite(zoom)) return "media";
   if (zoom < ZOOM_LONGE) return "longe";

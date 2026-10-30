@@ -36,6 +36,22 @@ export interface CampoDoFrame {
 /** Largura da folha A4 em pt: é contra ela que o corpo de cada linha se mede. */
 const LARGURA_A4_PT = 595;
 
+/*
+ * A FOLHA CABE NA JANELA (30/10/2026). A largura mandava em tudo: num chat
+ * largo a capa passava de 650 × 920 px e nem cabia na tela ("aumenta demais").
+ * A altura agora é no máximo esta fração da janela, e a largura sai dela pela
+ * proporção A4. `--ds-altura-da-janela` já desconta o zoom do `.ds`.
+ */
+const FRACAO_DA_JANELA = 0.5;
+/** Em janela baixa (notebook a 150%) a fração dava 210 px: todo texto no piso, sem hierarquia. */
+const LARGURA_MINIMA_PX = 340;
+const LARGURA_MAXIMA = `min(100%, max(${LARGURA_MINIMA_PX}px, calc(var(--ds-altura-da-janela, 100dvh) * ${FRACAO_DA_JANELA} / 1.414)))`;
+/**
+ * Abaixo disto o texto do campo não se lê nem se edita. Não sobe à toa: acima
+ * da proporção da folha, a linha longa (nome de obra) passa da borda e é cortada.
+ */
+const PISO_DO_CORPO_PX = 9;
+
 function familiaDaFonte(fonte: string | undefined): string {
   return fonte ? `"${fonte}", Arial, Helvetica, sans-serif` : "Arial, Helvetica, sans-serif";
 }
@@ -124,7 +140,8 @@ export function FrameDoDocumento({
 
   /** Uma linha impressa da capa. */
   const desenharParagrafo = (paragrafo: ParagrafoDoModelo) => {
-            const tamanho = `${((paragrafo.corpo ?? 12) / LARGURA_A4_PT) * 100}cqw`;
+            // O piso segura a leitura quando a folha encolhe para caber na janela.
+            const tamanho = `max(${((paragrafo.corpo ?? 12) / LARGURA_A4_PT) * 100}cqw, ${PISO_DO_CORPO_PX}px)`;
             return (
               <div
                 key={paragrafo.indice}
@@ -281,7 +298,7 @@ export function FrameDoDocumento({
    */
   const papel = (
     <div className="flex flex-col gap-2">
-      <div className="@container w-full">
+      <div className="@container mx-auto w-full" style={{ maxWidth: LARGURA_MAXIMA }}>
         <div
           className="relative mx-auto flex aspect-[1/1.414] w-full flex-col justify-between overflow-hidden rounded-[2px] bg-white text-[#17191c] shadow-[0_10px_28px_rgb(0_0_0/0.38)]"
           style={{ padding: "9cqw 8cqw" }}

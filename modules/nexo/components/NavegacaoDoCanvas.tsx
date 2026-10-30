@@ -17,6 +17,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useReactFlow } from "@xyflow/react";
 import { Merge, Plus, RotateCcw, Search, Split, Undo2 } from "lucide-react";
 
+import { ZOOM_MAXIMO_AO_ENQUADRAR } from "../lib/densidade-do-canvas";
 import { ehDigitacao } from "../lib/navegacao-por-teclado";
 import { Chip } from "@/components/ui/chip";
 import { Separator } from "@/components/ui/separator";
@@ -146,16 +147,9 @@ export function NavegacaoDoCanvas({
     (ids: string[]) => {
       const nos = fluxo.getNodes().filter((n) => ids.includes(n.id));
       if (nos.length === 0) return;
-      // Caixa que envolve a fileira inteira. `measured` traz o tamanho real
-      // medido; sem ele o enquadramento sai apertado nos nós mais altos.
-      const x1 = Math.min(...nos.map((n) => n.position.x));
-      const y1 = Math.min(...nos.map((n) => n.position.y));
-      const x2 = Math.max(...nos.map((n) => n.position.x + (n.measured?.width ?? 220)));
-      const y2 = Math.max(...nos.map((n) => n.position.y + (n.measured?.height ?? 300)));
-      fluxo.fitBounds(
-        { x: x1, y: y1, width: x2 - x1, height: y2 - y1 },
-        { padding: MARGEM, duration: 300 },
-      );
+      // A fileira inteira, pelo tamanho medido dos nós. `fitView` e não
+      // `fitBounds`: só ele aceita o teto do enquadramento automático.
+      void fluxo.fitView({ nodes: nos.map((n) => ({ id: n.id })), padding: MARGEM, maxZoom: ZOOM_MAXIMO_AO_ENQUADRAR, duration: 300 });
     },
     [fluxo],
   );
@@ -183,7 +177,7 @@ export function NavegacaoDoCanvas({
         fluxo.zoomOut({ duration: 200 });
       } else if (e.key === "0") {
         e.preventDefault();
-        fluxo.fitView({ padding: MARGEM, duration: 300 });
+        fluxo.fitView({ padding: MARGEM, maxZoom: ZOOM_MAXIMO_AO_ENQUADRAR, duration: 300 });
       } else if (/^[1-9]$/.test(e.key)) {
         const alvoFileira = fileiras[Number(e.key) - 1];
         if (alvoFileira) {

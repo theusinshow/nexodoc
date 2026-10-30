@@ -15,6 +15,7 @@
 import { useTemplatesDeCapa } from "../lib/use-templates-de-capa";
 import { criarCorte, cortesDasFaixas, patchesDosCortes } from "../lib/corte-dos-tomos";
 import { corDaDisciplina } from "../lib/disciplina-cor";
+import { ZOOM_MAXIMO_AO_ENQUADRAR } from "../lib/densidade-do-canvas";
 import { ReguaDosTomos, type CelulaDaRegua } from "./ReguaDosTomos";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -1514,7 +1515,7 @@ function CanvasInterno({
         edgeTypes={edgeTypes}
         colorMode="dark"
         fitView
-        fitViewOptions={{ padding: 0.3 }}
+        fitViewOptions={{ padding: 0.3, maxZoom: ZOOM_MAXIMO_AO_ENQUADRAR }}
         minZoom={0.3}
         maxZoom={1.5}
         nodesConnectable={false}
@@ -1681,7 +1682,7 @@ function ReenquadrarAoCrescer({ quantidade }: { quantidade: number }) {
   useEffect(() => {
     if (quantidade > anterior.current) {
       const id = requestAnimationFrame(() =>
-        fluxo.fitView({ padding: 0.25, duration: 400 }),
+        fluxo.fitView({ padding: 0.25, maxZoom: ZOOM_MAXIMO_AO_ENQUADRAR, duration: 400 }),
       );
       anterior.current = quantidade;
       return () => cancelAnimationFrame(id);
