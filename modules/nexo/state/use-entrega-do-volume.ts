@@ -18,6 +18,7 @@ import { assinaturaDosDocumentos } from "../lib/editaveis-no-projeto";
 import { passosDaEntrega, tomosMontados, tomosPlanejados, volumeDaCapa } from "../lib/entrega-do-volume";
 import { nomeDoZipDosVolumes, nomesDosEditaveis } from "../lib/nome-do-volume";
 import { redeParaGerar } from "../lib/rede-da-conversa";
+import { MOTIVO_DA_REDE, useRedeDoVolume } from "../components/PerguntaDaRedeDoVolume";
 import { volumesProntosDosResultados } from "../lib/volumes-prontos";
 import { useConversation } from "./conversation-store";
 import { useLiberacaoDoVolume } from "./use-liberacao-do-volume";
@@ -35,6 +36,7 @@ function baixarUrl(url: string, nome: string) {
 export function useEntregaDoVolume(selos: SeloForLd[]) {
   const { results, identidade, decisoes, editaveisSalvos, registrarEditaveisSalvos, blocosFundidos } = useConversation();
   const liberacao = useLiberacaoDoVolume();
+  const { pendente: redePorConfirmar } = useRedeDoVolume(selos);
   const [ocupado, setOcupado] = useState<"editaveis" | "volumes" | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -51,6 +53,11 @@ export function useEntregaDoVolume(selos: SeloForLd[]) {
    * `138_26_editaveis.zip` com `138_26_est_met_capas/ld/separatriz.odt`.
    */
   async function baixarEditaveisZip() {
+    // A LD editável imprime o caminho no rodapé: não sai com um que ninguém confirmou.
+    if (redePorConfirmar) {
+      setErro(MOTIVO_DA_REDE.charAt(0).toUpperCase() + MOTIVO_DA_REDE.slice(1) + ".");
+      return;
+    }
     setErro(null);
     setOcupado("editaveis");
     try {

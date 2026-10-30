@@ -18,6 +18,7 @@ import { useAuditoria } from "../state/auditoria-store";
 import { useConversation } from "../state/conversation-store";
 import { useFasesDaMontagem, useGeradorDoPlano } from "../state/montadores-de-volume";
 import { useMontarTodos } from "../state/use-montar-todos";
+import { PerguntaDaRedeDoVolume } from "./PerguntaDaRedeDoVolume";
 import { BarraDaMontagem } from "./ProgressoDaMontagem";
 
 export function CartaoDaMontagem({ selos }: { selos: SeloForLd[] }) {
@@ -71,6 +72,9 @@ export function CartaoDaMontagem({ selos }: { selos: SeloForLd[] }) {
           {n > 1 ? `${n} tomos prontos para montar.` : "O volume está pronto para montar."}
         </span>
       )}
+
+      {/* Onde as LDs ficam na rede: pergunta, e trava montar e baixar até alguém responder. */}
+      {!p.emCurso && <PerguntaDaRedeDoVolume selos={selos} />}
 
       <div className="flex flex-wrap items-center gap-2">
         {!p.emCurso && semMontador && gerador && (

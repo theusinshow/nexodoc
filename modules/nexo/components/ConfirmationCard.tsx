@@ -142,6 +142,7 @@ import { useAuditoria } from "../state/auditoria-store";
 import { opcoesDoTomo } from "../lib/editar-artefato";
 import { parametrosDaEntrega } from "../lib/editaveis-consolidados";
 import { redeParaGerar } from "../lib/rede-da-conversa";
+import { MOTIVO_DA_REDE, useRedeDoVolume } from "./PerguntaDaRedeDoVolume";
 import {
   estadoDoArtefato,
   type EstadoArtefato,
@@ -1642,7 +1643,12 @@ function VolumeConfirmation({
    * passava por baixo dela: numa conversa retomada, sem os bytes das pranchas,
    * ele entregava volumes com capa, separatriz e LD e nada dentro.
    */
-  const motivoDeBloqueio = motivoParaNaoMontar({
+  /*
+   * O CAMINHO DA REDE (30/10/2026): montar gera a LD do bloco que ainda não
+   * existe, e ela imprime o caminho no rodapé. A trava era só do plano do chat.
+   */
+  const { pendente: redePorConfirmar } = useRedeDoVolume(selosDoTomo);
+  const motivoDeBloqueio = (redePorConfirmar ? MOTIVO_DA_REDE : null) ?? motivoParaNaoMontar({
     temCapa: Boolean(capaPdfUrl),
     temLd: Boolean(ldPdfUrl),
     misto,
