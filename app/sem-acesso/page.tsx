@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
-import { getAdminEmails, getUserAccess } from "@/lib/access-control";
+import { getAdminEmails, requireActor } from "@/lib/access-control";
+import { AccessDenied } from "@/lib/actor";
 import { redirectToLogin } from "@/lib/auth-redirect";
 
 import { AvisoSemAcesso } from "./aviso-sem-acesso";
@@ -30,10 +31,21 @@ export default async function SemAcessoPage() {
     redirectToLogin("/sem-acesso");
   }
 
-  const access = await getUserAccess(session.user.email, session.user.name);
-
-  // Já liberado? Então esta tela não é para ele — volta ao trabalho.
-  if (access.isActive) {
+  /*
+   * Já liberado? Então esta tela não é para ele — volta ao trabalho. A régua é
+   * a MESMA do portão (`requireActor`), e não `access.isActive`: conta nova
+   * nasce ativa mas pode não ter vínculo com escritório (cadastro automático
+   * desligado). Com `isActive` aqui, /nexo mandava para cá, daqui para /nexo,
+   * e o navegador parava em ERR_TOO_MANY_REDIRECTS (30/10/2026).
+   */
+  let liberado = false;
+  try {
+    await requireActor();
+    liberado = true;
+  } catch (err) {
+    if (!(err instanceof AccessDenied)) throw err;
+  }
+  if (liberado) {
     redirect("/nexo");
   }
 
